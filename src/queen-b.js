@@ -5,7 +5,7 @@ PROCESS:
     - Scan sub-nodes
     - Push missing sub-nodes to main list
 
-- Root access (attacker):
+- Root access (infiltrator):
     - Hack level ?
     - Open ports ?
     - Backdoor ?
@@ -20,11 +20,21 @@ PROCESS:
     - Formula: (max_money) / (min_security*0.25)
     - The most valuable target (MVT) has the highest score
 
-- Attacks starting
-
+- Attacks starting (warlord):
     - Compute the number of threads to start
     - Run muncher.js on the server with target as argument
 
+- Roles planification (profiler):
+    - 50% of total cores weaken
+    - 35% of total cores grow
+    - 15% of total cores hack
+    - Set roles for servers
+
+- Attacks monitoring (dispatcher):
+    - Monitor target state
+    - Make thresholds for SOS calls
+    - Make thresholds for reaction to SOS calls 
+    - Reposition roles if thresholds are reached
 */
 
 // Finds all servers available and returns a list of them
@@ -159,24 +169,236 @@ function targetServer(ns, servers) {
 
     // Find the most valuable target to attack
     var mvt = targets[scores.indexOf(Math.max(...scores))];
-    
-    // Repeat the process for each server
+
+    return mvt;    
+}
+
+// Compute the number of threads a server can run at once
+function getThreads(ns, server, script) {
+    let serverObj = ns.getServer(server);
+    return Math.floor((serverObj.maxRam - serverObj.ramUsed) / ns.getScriptRam(script));
+}
+
+// Start attacks on the target server
+function attackServer(ns, servers, target) {
     let starting_script = "muncher.js";
+
+    // Repeat the process for each server
+    for (let i = 0; i < servers.length; i++) {
+        let threads = getThreads(ns, servers[i], starting_script);
+
+        if (!threads) {
+            continue;
+        }
+
+        // Start base script on the server
+        ns.exec(starting_script, servers[i], threads, target);
+    }
+}
+
+
+// Gives a role to every nuked server
+function profileServers(ns, servers) {
+    
+    // Servers of each role
+    var muncher = [];
+    var gatherer = [];
+    var collector = [];
+    
+    // Servers data
+    var serversCores = [];
+    var servers_ = servers;
+    var totCores = 0;
+    
+    // Get the total number of cores available
     for (let i = 0; i < servers.length; i++) {
         let server = servers[i];
         let serverObj = ns.getServer(server);
+        
+        serversCores.push(serverObj.cpuCores);
+        totCores += serversCores[i];
+    }
+    
+    // Cores attributed to each role counters
+    let muncherCores = 0;
+    let gathererCores = 0;
+    let collectorCores = 0;
+    
+    
+    while (muncherCores < Math.ceil(totCores * 0.5)) {
+        // Find the best server for muncher role
+        let index = serversCores.indexOf(Math.max(...serversCores));
+        
+        // Add the server to the role
+        muncher.push(servers[index]);
+        
+        // Keep track of the cores attributed to this role
+        muncherCores += serversCores[index];
+        
+        // Remove server from the arrays
+        serversCores.splice(index, 1);
+        servers_.splice(index, 1);
+    }
 
-        // Compute the number of threads to start
-        let threads = Math.floor(serverObj.maxRam / ns.getScriptRam(starting_script));
+    while (gathererCores < Math.ceil(totCores * 0.35)) {
+        // Find the best server for gatherer role
+        let index = serversCores.indexOf(Math.max(...serversCores));
 
-        // Pass the execution of a script in case of errors
-        if (!threads || threads == Math.abs(Infinity)) {
-            ns.print(`A thread count error was encountered for ${server}`);
-            continue;
+        // Add the server to the role
+        gatherer.push(servers[index]);
+        
+        // Keep track of the cores attributed to this role
+        gathererCores += serversCores[index];
+        
+        // Remove server from the arrays
+        serversCores.splice(index, 1);
+        servers_.splice(index, 1);
+    }
+    
+    // Collector roles attribution
+    collector = servers_;
+    collectorCores = totCores - (muncherCores + gathererCores);
+    
+    // Terminal feedback
+    ns.tprint(`\nRoles attribution: ${muncherCores} muncher Cores
+${gathererCores} gatherer Cores\n${collectorCores} collector Cores
+With a total of ${totCores} cores\n`);
+    
+return [muncher, gatherer, collector];
+}
+
+// Send a command to a script
+function cmdSend(ns, server, value, threads) {
+    let script = "queenBcmd.txt";
+    // Write the file in home
+    ns.write(script, `${value}-${threads}`, "w");
+    
+    // Copy the file to the target server
+    if (ns.fileExists(script, server)) {
+        ns.rm(script, server);
+        }
+
+    // Write script to the server
+    ns.scp(script, server, "home");
+}
+
+// Give orders to roles depending on target's state
+async function monitorServers(ns, target, muncher, gatherer, collector) {
+    let targetObj = ns.getServer(target);
+
+    // Behavior thresholds
+    let gathererSOSThr = targetObj.moneyMax * 0.80;
+    let gathererSOSAns = targetObj.moneyMax * 0.95;
+    
+    let collectorSOSThr = targetObj.moneyMax * 0.95;
+    let collectorSOSAns = targetObj.moneyMax * 0.80;
+    
+    let muncherSOSThr = targetObj.minDifficulty * 1.25;
+    let muncherSOSAns = targetObj.minDifficulty * 1;
+
+    //@ignore-infinite
+    while (true) {
+        // Check munchers' flags
+        let muncherSOS = false;
+        let muncherAns = false;
+        if (targetObj.hackDifficulty >= muncherSOSThr) {
+            muncherSOS = true;
+        }
+        if (targetObj.hackDifficulty <= muncherSOSAns) {
+            muncherAns = true;
         }
         
-        // Start gatherer.js on the server
-        ns.exec(starting_script, server, threads, mvt);
+        // Check gatherers' flags
+        let gathererSOS = false;
+        let gathererAns = false;
+        if (targetObj.moneyAvailable <= gathererSOSThr) {
+            gathererSOS = true;
+        }
+        if (targetObj.moneyAvailable > gathererSOSAns) {
+            gathererAns = true;
+        }
+        
+        // Check collectors' flags
+        let collectorSOS = false;
+        let collectorAns = false;
+        if (targetObj.moneyAvailable > collectorSOSThr) {
+            collectorSOS = true;
+        }
+        if (targetObj.moneyAvailable <= collectorSOSAns) {
+            collectorAns = true;
+        }
+
+        // Dispatch in case of SOS call
+        if (gathererSOS) {
+            if (collectorAns) {
+                for (let i = 0; i < collector.length; i++) {
+                    cmdSend(ns, collector[i], 1,
+                        getThreads(ns, collector[i], "gatherer.js"));
+                }
+            }
+            if (muncherAns) {
+                for (let i = 0; i < muncher.length; i++) {
+                    cmdSend(ns, muncher[i], 1,
+                        getThreads(ns, muncher[i], "gatherer.js"));
+                }
+            }
+        }
+
+        if (muncherSOS) {
+            if (collectorAns) {
+                for (let i = 0; i < collector.length; i++) {
+                    cmdSend(ns, collector[i], 2,
+                        getThreads(ns, collector[i], "muncher.js"));
+                }
+            }
+            if (gathererAns) {
+                for (let i = 0; i < gatherer.length; i++) {
+                    cmdSend(ns, gatherer[i], 2,
+                        getThreads(ns, gatherer[i], "muncher.js"));
+                }
+            }
+        }
+        
+        if (collectorSOS) {
+            if (muncherAns) {
+                for (let i = 0; i < muncher.length; i++) {
+                    cmdSend(ns, muncher[i], 0,
+                        getThreads(ns, muncher[i], "collector.js"));
+                }
+            }
+            if (gathererAns) {
+                for (let i = 0; i < gatherer.length; i++) {
+                    cmdSend(ns, gatherer[i], 0,
+                        getThreads(ns, gatherer[i], "collector.js"));
+                }
+            }
+        }
+
+        // Collector dispatch if no SOS call
+        if ((!gathererSOS && !muncherSOS) || (!collectorAns)) {
+            for (let i = 0; i < collector.length; i++) {
+                cmdSend(ns, collector[i], 0,
+                    getThreads(ns, collector[i], "collector.js"));
+                }
+            }
+            
+        // Gatherer dispatch if no SOS call
+        if ((!collectorSOS && !muncherSOS) || (!gathererAns)) {
+            for (let i = 0; i < gatherer.length; i++) {
+                cmdSend(ns, gatherer[i], 1,
+                    getThreads(ns, gatherer[i], "gatherer.js"));
+                }
+            }
+            
+        // Muncher dispatch if no SOS call
+        if ((!collectorSOS && !gathererSOS) || (!muncherAns)) {
+            for (let i = 0; i < muncher.length; i++) {
+                cmdSend(ns, muncher[i], 2,
+                    getThreads(ns, muncher[i], "muncher.js"));
+            }
+        }
+        // Wait 10s before looping
+        await ns.sleep(10000);
     }
 }
 
@@ -203,8 +425,17 @@ export async function main(ns) {
     ns.print("\nInjecting scripts on nuked servers...\n");
     infectServers(ns, nukedSubNodes, scripts);
 
+    // Select the target to attack
+    var target = targetServer(ns, nukedSubNodes);
+    ns.print(`\nCommencing attack on target: ${target}\n`);
+    
     // Start scripts on all nuked servers
     ns.print("\nStarting scripts on nuked servers...\n");
-    targetServer(ns, nukedSubNodes);
+    attackServer(ns, nukedSubNodes, target);
+    
+    // Dispatch servers with roles
+    var roles = profileServers(ns, nukedSubNodes);
 
+    // Monitor servers
+    monitorServers(ns, target, ...roles);
 }

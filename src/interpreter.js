@@ -8,31 +8,23 @@ export function cmdRead(ns, tgt) {
     }
 
     let command = ns.read("queenBcmd.txt");
-    ns.rm("queenBcmd.txt");
-
+    var next_script = 0;
     switch (command[0]) {
         case 0: // Run "collector.js"
-            ns.spawn("collector.js",
-                {
-                    threads: Number(command[2]) * 10 + Number(command[3]),
-                    spawnDelay: 16
-                }, tgt);
+            next_script = "collector.js";
             break;
         case 1: // Run "gatherer.js"
-            ns.spawn("gatherer.js",
-                {
-                    threads: Number(command[2]) * 10 + Number(command[3]),
-                    spawnDelay: 16
-                }, tgt);
+            next_script = "gatherer.js";
             break;
         case 2: // Run "muncher.js"
-            ns.spawn("muncher.js",
-                {
-                    threads: Number(command[2]) * 10 + Number(command[3]),
-                    spawnDelay: 16
-                }, tgt);
+            next_script = "muncher.js";
             break;
         default:
             ns.print(`A wrong command(${command[0]}) was passed through queenBcmd.txt`);
-    }
+        }
+    ns.spawn(next_script,
+        {
+            threads: Number(command[2]) * 10 + Number(command[3]),
+            spawnDelay: 16
+        }, tgt);
 }
