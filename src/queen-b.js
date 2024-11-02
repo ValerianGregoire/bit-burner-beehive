@@ -125,15 +125,17 @@ function nukeServers(ns, servers) {
 function infectServers(ns, servers, scripts) {
 
     // Remove home from infection
-    servers = servers.filter(function (e) { return e !== "home" });
+    // let servers_ = servers.filter(function (e) { return e !== "home" });
 
     // Repeat the process for each server
     for (let i = 0; i < servers.length; i++) {
         let server = servers[i];
-
-        if (server != "home") {
-            ns.killall(server);
+        
+        if (server == "home") {
+            continue;
         }
+
+        ns.killall(server);
 
         // Check for the presence of scripts on server
         for (let j = 0; j < scripts.length; j++) {
@@ -179,7 +181,9 @@ function targetServer(ns, servers) {
 // Compute the number of threads a server can run at once
 function getThreads(ns, server, script) {
     let serverObj = ns.getServer(server);
-    return Math.floor((serverObj.maxRam - serverObj.ramUsed) / ns.getScriptRam(script));
+    let ram = serverObj.maxRam - serverObj.ramUsed;
+    let val = Math.floor(ram / ns.getScriptRam(script));
+    return val;
 }
 
 // Start attacks on the target server
@@ -194,7 +198,7 @@ function attackServer(ns, servers, target, starting_script) {
         }
 
         // Start base script on the server
-        ns.exec(starting_script, servers[i], threads, target);
+        ns.exec(starting_script, servers[i], threads, target, servers[i]);
     }
 }
 
@@ -270,19 +274,14 @@ return [muncher, gatherer, collector];
 
 // Send a command to a script
 function cmdSend(ns, server, value, threads) {
-    if (server != "home") {
-        let script = "queenBcmd.txt";
-        // Write the file in home
-        ns.write(script, `${value}-${threads}`, "w");
-        
-        // Copy the file to the target server
-        if (ns.fileExists(script, server)) {
-            ns.rm(script, server);
-        }
-        
-        // Write script to the server
-        ns.scp(script, server, "home");
-    }
+    let str = "000" + threads;
+    threads = str.substr(str.length - 3);
+    let script = `./commands/${server}.txt`;
+    // Write the file in home
+    ns.write(script, `${value}-${threads}`, "w");
+
+    // Copy the file to target server
+    ns.scp(script, server, "home");
 }
 
 // Give orders to roles depending on target's state

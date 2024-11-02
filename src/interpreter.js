@@ -1,13 +1,17 @@
 /*
-Reads commands of format: cmdID[1]-t[2]
-ex: 1-16
+Reads commands of format: cmdID[1]-t[3]
+ex: 1-016
 */
-export function cmdRead(ns, tgt) {
-    if (!ns.fileExists("queenBcmd.txt")) {
+export async function cmdRead(ns, server, tgt) {
+    let command = ns.read(`./${server}.txt`);
+
+    if (!command) {
+        ns.print(`No command for server ${server}`);
         return;
     }
 
-    let command = ns.read("queenBcmd.txt");
+    ns.print(`Command for server ${server}: ${command}`);
+
     var next_script = 0;
     switch (Number(command[0])) {
         case 0: // Run "collector.js"
@@ -20,12 +24,19 @@ export function cmdRead(ns, tgt) {
             next_script = "muncher.js";
             break;
         default:
-            ns.print(`A wrong command(${command[0]}) was passed through queenBcmd.txt`);
+            ns.print(`A wrong command(${command[0]}) was passed through files`);
             return;
-        }
-    ns.spawn(next_script,
+    }
+    let thr = Number(command[2]) * 100 + Number(command[3]) * 10 + Number(command[4]);
+
+    if (!thr) {
+        ns.print(`Thr = 0 for server ${server}`);
+        return;
+    }
+    ns.print(`Spawning ${next_script} for server ${server}`);
+    await ns.spawn(next_script,
         {
-            threads: Number(command[2]) * 10 + Number(command[3]),
-            spawnDelay: 16
-        }, tgt);
+            threads: thr,
+            spawnDelay: 10
+        }, tgt, server);
 }
