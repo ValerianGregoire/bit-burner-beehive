@@ -181,7 +181,13 @@ function targetServer(ns, servers) {
 // Compute the number of threads a server can run at once
 function getThreads(ns, server, script) {
     let serverObj = ns.getServer(server);
-    let ram = serverObj.maxRam - serverObj.ramUsed;
+    let ram = 0;
+    if (server == "home") {
+        ram = serverObj.maxRam - ns.getScriptRam("queen-b.js");
+    }
+    else {
+        ram = serverObj.maxRam;
+    }
     let val = Math.floor(ram / ns.getScriptRam(script));
     return val;
 }

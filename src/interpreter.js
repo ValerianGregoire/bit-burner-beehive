@@ -3,7 +3,7 @@ Reads commands of format: cmdID[1]-t[3]
 ex: 1-016
 */
 export async function cmdRead(ns, server, tgt) {
-    let command = ns.read(`./${server}.txt`);
+    let command = ns.read(`./commands/${server}.txt`);
 
     if (!command) {
         ns.print(`No command for server ${server}`);
