@@ -14,10 +14,14 @@ PROCESS:
     - Kill all scripts
     - Write new scripts
 
-- Targets finding (dispatcher):
-    - Scan connections (for each server)
+- Target finding (strategist):
     - Ignore home/owned_servers
+    - Compute the score of each nuked server
     - Formula: (max_money) / (min_security*0.25)
+    - The most valuable target (MVT) has the highest score
+
+- Attacks starting
+
     - Compute the number of threads to start
     - Run muncher.js on the server with target as argument
 
@@ -132,40 +136,38 @@ function infectServers(ns, servers, scripts) {
     }
 }
 
-// Find main servers to target and attack them
-function targetServers(ns, servers) {
+// Find main server to target and attack it
+function targetServer(ns, servers) {
 
+    // Filter out home and owned servers
+    let targets = [];
+    for (let i = 0; i < servers.length; i++) {
+        if (servers[i] == "home" || ns.getServer(servers[i]).purchasedByPlayer) {
+            continue;
+        }
+        targets.push(servers[i]);
+    }
+
+    // Compare the max money with the min security level
+    let scores = [];
+    for (let i = 0; i < targets.length; i++) {
+        let target = ns.getServer(targets[i]);
+        let max_money = target.moneyMax;
+        let min_security = target.minDifficulty;
+        scores.push((max_money) / (min_security * 0.25));
+    }
+
+    // Find the most valuable target to attack
+    var mvt = targets[scores.indexOf(Math.max(...scores))];
+    
     // Repeat the process for each server
+    let starting_script = "muncher.js";
     for (let i = 0; i < servers.length; i++) {
         let server = servers[i];
         let serverObj = ns.getServer(server);
 
-        // Scan current server's connections
-        let connections = ns.scan(server);
-
-        // Filter out home and owned servers
-        let targets = [];
-        for (let j = 0; j < connections.length; j++) {
-            if (connections[j] == "home" || ns.getServer(connections[j]).purchasedByPlayer) {
-                continue;
-            }
-            targets.push(connections[j]);
-        }
-
-        // Compare the max money with the min security level
-        let scores = [];
-        for (let j = 0; j < targets.length; j++) {
-            let target = ns.getServer(targets[j]);
-            let max_money = target.moneyMax;
-            let min_security = target.minDifficulty;
-            scores.push((max_money) / (min_security * 0.25));
-        }
-
-        // Find the most valuable target for the server
-        let mvt = targets[scores.indexOf(Math.max(scores))];
-
         // Compute the number of threads to start
-        let threads = Math.floor(serverObj.maxRam / ns.getScriptRam("gatherer.js"));
+        let threads = Math.floor(serverObj.maxRam / ns.getScriptRam(starting_script));
 
         // Pass the execution of a script in case of errors
         if (!threads || threads == Math.abs(Infinity)) {
@@ -174,7 +176,7 @@ function targetServers(ns, servers) {
         }
         
         // Start gatherer.js on the server
-        ns.exec("gatherer.js", server, threads, mvt);
+        ns.exec(starting_script, server, threads, mvt);
     }
 }
 
@@ -203,6 +205,6 @@ export async function main(ns) {
 
     // Start scripts on all nuked servers
     ns.print("\nStarting scripts on nuked servers...\n");
-    targetServers(ns, nukedSubNodes);
+    targetServer(ns, nukedSubNodes);
 
 }
