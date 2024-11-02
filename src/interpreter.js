@@ -9,7 +9,7 @@ export function cmdRead(ns, tgt) {
 
     let command = ns.read("queenBcmd.txt");
     var next_script = 0;
-    switch (command[0]) {
+    switch (Number(command[0])) {
         case 0: // Run "collector.js"
             next_script = "collector.js";
             break;
@@ -21,6 +21,7 @@ export function cmdRead(ns, tgt) {
             break;
         default:
             ns.print(`A wrong command(${command[0]}) was passed through queenBcmd.txt`);
+            return;
         }
     ns.spawn(next_script,
         {

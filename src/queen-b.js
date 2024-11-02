@@ -183,8 +183,7 @@ function getThreads(ns, server, script) {
 }
 
 // Start attacks on the target server
-function attackServer(ns, servers, target) {
-    let starting_script = "muncher.js";
+function attackServer(ns, servers, target, starting_script) {
 
     // Repeat the process for each server
     for (let i = 0; i < servers.length; i++) {
@@ -301,7 +300,6 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
     let muncherSOSAns = targetObj.minDifficulty * 1;
     
     while (true) {
-        ns.tprint("Calling monitor...");
         // Check munchers' flags
         let muncherSOS = false;
         let muncherAns = false;
@@ -434,8 +432,9 @@ export async function main(ns) {
     ns.print(`\nCommencing attack on target: ${target}\n`);
     
     // Start scripts on all nuked servers
+    var starting_script = "collector.js";
     ns.print("\nStarting scripts on nuked servers...\n");
-    attackServer(ns, nukedSubNodes, target);
+    attackServer(ns, nukedSubNodes, target, starting_script);
     
     // Dispatch servers with roles
     var roles = profileServers(ns, nukedSubNodes);
