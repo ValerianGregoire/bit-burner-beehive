@@ -130,7 +130,10 @@ function infectServers(ns, servers, scripts) {
     // Repeat the process for each server
     for (let i = 0; i < servers.length; i++) {
         let server = servers[i];
-        ns.killall(server);
+
+        if (server != "home") {
+            ns.killall(server);
+        }
 
         // Check for the presence of scripts on server
         for (let j = 0; j < scripts.length; j++) {
@@ -164,7 +167,7 @@ function targetServer(ns, servers) {
         let target = ns.getServer(targets[i]);
         let max_money = target.moneyMax;
         let min_security = target.minDifficulty;
-        scores.push((max_money) / (min_security * 0.25));
+        scores.push((max_money * 0.005) / (min_security * 1));
     }
 
     // Find the most valuable target to attack
@@ -195,7 +198,6 @@ function attackServer(ns, servers, target) {
         ns.exec(starting_script, servers[i], threads, target);
     }
 }
-
 
 // Gives a role to every nuked server
 function profileServers(ns, servers) {
@@ -269,23 +271,25 @@ return [muncher, gatherer, collector];
 
 // Send a command to a script
 function cmdSend(ns, server, value, threads) {
-    let script = "queenBcmd.txt";
-    // Write the file in home
-    ns.write(script, `${value}-${threads}`, "w");
-    
-    // Copy the file to the target server
-    if (ns.fileExists(script, server)) {
-        ns.rm(script, server);
+    if (server != "home") {
+        let script = "queenBcmd.txt";
+        // Write the file in home
+        ns.write(script, `${value}-${threads}`, "w");
+        
+        // Copy the file to the target server
+        if (ns.fileExists(script, server)) {
+            ns.rm(script, server);
         }
-
-    // Write script to the server
-    ns.scp(script, server, "home");
+        
+        // Write script to the server
+        ns.scp(script, server, "home");
+    }
 }
 
 // Give orders to roles depending on target's state
 async function monitorServers(ns, target, muncher, gatherer, collector) {
     let targetObj = ns.getServer(target);
-
+    
     // Behavior thresholds
     let gathererSOSThr = targetObj.moneyMax * 0.80;
     let gathererSOSAns = targetObj.moneyMax * 0.95;
@@ -295,9 +299,9 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
     
     let muncherSOSThr = targetObj.minDifficulty * 1.25;
     let muncherSOSAns = targetObj.minDifficulty * 1;
-
-    //@ignore-infinite
+    
     while (true) {
+        ns.tprint("Calling monitor...");
         // Check munchers' flags
         let muncherSOS = false;
         let muncherAns = false;
@@ -397,8 +401,8 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
                     getThreads(ns, muncher[i], "muncher.js"));
             }
         }
-        // Wait 10s before looping
-        await ns.sleep(10000);
+        // Wait 1s before looping
+        await ns.asleep(1000);
     }
 }
 
@@ -437,5 +441,5 @@ export async function main(ns) {
     var roles = profileServers(ns, nukedSubNodes);
 
     // Monitor servers
-    monitorServers(ns, target, ...roles);
+    await monitorServers(ns, target, ...roles);
 }
