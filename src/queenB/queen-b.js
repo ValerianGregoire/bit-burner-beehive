@@ -251,7 +251,7 @@ function profileServers(ns, servers) {
         servers_.splice(index, 1);
     }
 
-    while (gathererCores < Math.ceil(totCores * 0.35)) {
+    while (gathererCores < Math.ceil(totCores * 0.45)) {
         // Find the best server for gatherer role
         let index = serversCores.indexOf(Math.max(...serversCores));
 
@@ -299,9 +299,9 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
     let gathererSOSAns = targetObj.moneyMax * 0.95;
     
     let collectorSOSThr = targetObj.moneyMax * 0.95;
-    let collectorSOSAns = targetObj.moneyMax * 0.80;
+    let collectorSOSAns = targetObj.moneyMax * 0.70;
     
-    let muncherSOSThr = targetObj.minDifficulty * 1.25;
+    let muncherSOSThr = targetObj.minDifficulty * 3;
     let muncherSOSAns = targetObj.minDifficulty * 1;
     
     while (true) {
