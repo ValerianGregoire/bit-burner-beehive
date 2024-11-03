@@ -1,41 +1,11 @@
-/*
-PROCESS:
+/*******************************************************************************
+WIDESHARE.JS
+--
 
-- Servers scavenging (pathfinder):
-    - Scan sub-nodes
-    - Push missing sub-nodes to main list
+Kills all scripts on the network then starts a share process for every available
+server with the maximal amount of threads for each.
+*******************************************************************************/
 
-- Root access (infiltrator):
-    - Hack level ?
-    - Open ports ?
-    - Backdoor ?
-
-- Scripts laying (infecter):
-    - Kill all scripts
-    - Write new scripts
-
-- Target finding (strategist):
-    - Ignore home/owned_servers
-    - Compute the score of each nuked server
-    - Formula: (max_money) / (min_security*0.25)
-    - The most valuable target (MVT) has the highest score
-
-- Attacks starting (warlord):
-    - Compute the number of threads to start
-    - Run muncher.js on the server with target as argument
-
-- Roles planification (profiler):
-    - 50% of total cores weaken
-    - 35% of total cores grow
-    - 15% of total cores hack
-    - Set roles for servers
-
-- Attacks monitoring (dispatcher):
-    - Monitor target state
-    - Make thresholds for SOS calls
-    - Make thresholds for reaction to SOS calls 
-    - Reposition roles if thresholds are reached
-*/
 
 // Finds all servers available and returns a list of them
 function getServers(ns) {
@@ -165,14 +135,14 @@ export async function main(ns) {
     var subNodes = getServers(ns);
 
     // Log results
-    ns.print(`\nFound servers: ${subNodes}\n`);
+    ns.print(`Found servers: ${subNodes}\n`);
 
     // Nuke all available servers
-    ns.print("\nNuking found servers...\n");
+    ns.print("Nuking found servers...\n");
     var nukedSubNodes = nukeServers(ns, subNodes);
 
     // Log results
-    ns.print(`\nNuked servers: ${nukedSubNodes}\n`);
+    ns.print(`Nuked servers: ${nukedSubNodes}\n`);
 
     // Infect servers with the sharer script
     let script = "sharer.js";

@@ -1,4 +1,15 @@
-/*
+/*******************************************************************************
+QUEEN-B.JS
+--
+
+Main attack process to take over a network.
+Gains access to the maximal amount of available servers and selects a valuable 
+target. Writes attack subscripts on every hacked server and launches them.
+
+The Queen Bee gives roles to each of the servers in the hive before ordering
+them to perform the necessary tasks to drain money from the targetted server.
+--
+
 PROCESS:
 
 - Servers scavenging (pathfinder):
@@ -35,10 +46,11 @@ PROCESS:
     - Make thresholds for SOS calls
     - Make thresholds for reaction to SOS calls 
     - Reposition roles if thresholds are reached
-*/
+*******************************************************************************/
 
 // Finds all servers available and returns a list of them
 function getServers(ns) {
+
     // Servers array
     var subNodes = ["home"];
     var again = true; // Indicates if new unanalyzed servers were found
@@ -64,6 +76,7 @@ function getServers(ns) {
 
 // Gets root access to servers and returns a list of nuked servers
 function nukeServers(ns, servers) {
+
     var nuked = [];
     var hackLevel = ns.getHackingLevel();
 
@@ -124,9 +137,6 @@ function nukeServers(ns, servers) {
 // Write scripts to nuked servers
 function infectServers(ns, servers, scripts) {
 
-    // Remove home from infection
-    // let servers_ = servers.filter(function (e) { return e !== "home" });
-
     // Repeat the process for each server
     for (let i = 0; i < servers.length; i++) {
         let server = servers[i];
@@ -135,6 +145,7 @@ function infectServers(ns, servers, scripts) {
             continue;
         }
 
+        // Free the available server's RAM
         ns.killall(server);
 
         // Check for the presence of scripts on server
@@ -180,16 +191,18 @@ function targetServer(ns, servers) {
 
 // Compute the number of threads a server can run at once
 function getThreads(ns, server, script) {
+
+    // Get server's object reference
     let serverObj = ns.getServer(server);
-    let ram = 0;
+
+    // Home should always have the queen-b.js script, taking RAM
     if (server == "home") {
-        ram = serverObj.maxRam - ns.getScriptRam("queen-b.js");
+        var ram = serverObj.maxRam - ns.getScriptRam("queen-b.js");
     }
     else {
-        ram = serverObj.maxRam;
+        var ram = serverObj.maxRam;
     }
-    let val = Math.floor(ram / ns.getScriptRam(script));
-    return val;
+    return Math.floor(ram / ns.getScriptRam(script));
 }
 
 // Start attacks on the target server
@@ -271,7 +284,7 @@ function profileServers(ns, servers) {
     collectorCores = totCores - (muncherCores + gathererCores);
     
     // Terminal feedback
-    ns.tprint(`\nRoles attribution: ${muncherCores} muncher Cores
+    ns.tprint(`\nRoles attribution: \n${muncherCores} muncher Cores
 ${gathererCores} gatherer Cores\n${collectorCores} collector Cores
 With a total of ${totCores} cores\n`);
     
@@ -280,8 +293,8 @@ return [muncher, gatherer, collector];
 
 // Send a command to a script
 function cmdSend(ns, server, value, threads) {
-    let str = "000" + threads;
-    threads = str.substr(str.length - 3);
+    let str = "0000000000000000000000000" + threads;
+    threads = str.substr(str.length - 25);
     let script = `./commands/${server}.txt`;
     // Write the file in home
     ns.write(script, `${value}-${threads}`, "w");
@@ -292,8 +305,10 @@ function cmdSend(ns, server, value, threads) {
 
 // Give orders to roles depending on target's state
 async function monitorServers(ns, target, muncher, gatherer, collector) {
-    let targetObj = ns.getServer(target);
     
+    // Get server's object reference
+    let targetObj = ns.getServer(target);
+
     // Behavior thresholds
     let gathererSOSThr = targetObj.moneyMax * 0.80;
     let gathererSOSAns = targetObj.moneyMax * 0.95;
@@ -305,6 +320,8 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
     let muncherSOSAns = targetObj.minDifficulty * 1;
     
     while (true) {
+        targetObj = ns.getServer(target); // Update server state
+
         // Check munchers' flags
         let muncherSOS = false;
         let muncherAns = false;
@@ -321,21 +338,21 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
         if (targetObj.moneyAvailable <= gathererSOSThr) {
             gathererSOS = true;
         }
-        if (targetObj.moneyAvailable > gathererSOSAns) {
+        if (targetObj.moneyAvailable >= gathererSOSAns) {
             gathererAns = true;
         }
         
         // Check collectors' flags
         let collectorSOS = false;
         let collectorAns = false;
-        if (targetObj.moneyAvailable > collectorSOSThr) {
+        if (targetObj.moneyAvailable >= collectorSOSThr) {
             collectorSOS = true;
         }
         if (targetObj.moneyAvailable <= collectorSOSAns) {
             collectorAns = true;
         }
 
-        // Dispatch in case of SOS call
+        // SOS logic to help gatherers
         if (gathererSOS) {
             if (collectorAns) {
                 for (let i = 0; i < collector.length; i++) {
@@ -351,6 +368,7 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
             }
         }
 
+        // SOS logic to help munchers 
         if (muncherSOS) {
             if (collectorAns) {
                 for (let i = 0; i < collector.length; i++) {
@@ -366,6 +384,7 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
             }
         }
         
+        // SOS logic to help collectors
         if (collectorSOS) {
             if (muncherAns) {
                 for (let i = 0; i < muncher.length; i++) {
@@ -413,14 +432,14 @@ async function monitorServers(ns, target, muncher, gatherer, collector) {
 export async function main(ns) {
 
     // Get all servers names
-    ns.print("Fetching a list of available servers...\n");
+    ns.tprint("Fetching a list of available servers...\n");
     var subNodes = getServers(ns);
 
     // Log results
     ns.print(`\nFound servers: ${subNodes}\n`);
 
     // Nuke all available servers
-    ns.print("\nNuking found servers...\n");
+    ns.tprint("Nuking found servers...\n");
     var nukedSubNodes = nukeServers(ns, subNodes);
 
     // Log results
@@ -429,16 +448,19 @@ export async function main(ns) {
     // Write scripts to all nuked servers
     var scripts = ["collector.js", "gatherer.js", "muncher.js",
         "interpreter.js"];
-    ns.print("\nInjecting scripts on nuked servers...\n");
+    ns.tprint("Injecting scripts on nuked servers...\n");
     infectServers(ns, nukedSubNodes, scripts);
 
     // Select the target to attack
     var target = targetServer(ns, nukedSubNodes);
-    ns.print(`\nCommencing attack on target: ${target}\n`);
+    if (ns.args[0]) {
+        target = ns.args[0];
+    }
+    ns.tprint(`Commencing attack on target: ${target}\n`);
     
     // Start scripts on all nuked servers
     var starting_script = "collector.js";
-    ns.print("\nStarting scripts on nuked servers...\n");
+    ns.tprint("Starting scripts on nuked servers...\n");
     attackServer(ns, nukedSubNodes, target, starting_script);
     
     // Dispatch servers with roles
